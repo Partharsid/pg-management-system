@@ -17,11 +17,20 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await signIn("credentials", {
+      const result = await signIn("credentials", {
         email,
         password,
-        redirectTo: "/",
+        redirect: false,
       });
+
+      if (result?.error) {
+        setError("Invalid email or password");
+        setLoading(false);
+      } else if (result?.url) {
+        window.location.href = result.url;
+      } else {
+        window.location.href = "/";
+      }
     } catch (err) {
       console.error("Login error:", err);
       setError("An error occurred. Please try again.");
