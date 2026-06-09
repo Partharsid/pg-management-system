@@ -13,11 +13,14 @@ export async function GET(
     }
 
     const { id } = await params;
+    const userRole = (session.user as { role?: string })?.role;
 
     const payment = await prisma.payment.findUnique({
       where: { id },
       include: {
-        tenant: true,
+        tenant: {
+          select: { id: true, name: true, phone: true, userId: true },
+        },
         invoice: true,
         recordedBy: {
           select: { id: true, name: true },
@@ -27,6 +30,14 @@ export async function GET(
 
     if (!payment) {
       return NextResponse.json({ error: "Payment not found" }, { status: 404 });
+    }
+
+    // TENANT can only view their own payments
+    if (userRole === "TENANT") {
+      const sessionUserId = (session.user as { id?: string })?.id;
+      if (payment.tenant.userId !== sessionUserId) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
     }
 
     return NextResponse.json(payment);

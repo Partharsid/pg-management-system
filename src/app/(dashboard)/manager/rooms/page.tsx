@@ -167,7 +167,7 @@ export default function ManagerRoomsPage() {
         size="lg"
       >
         <RoomForm
-          room={selectedRoom}
+          room={selectedRoom || undefined}
           onSuccess={() => { setShowModal(false); setSelectedRoom(null); fetchRooms(); }}
         />
       </Modal>

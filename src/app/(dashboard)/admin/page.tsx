@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import {
   DollarSign,
@@ -8,8 +8,6 @@ import {
   Users,
   BedDouble,
   AlertTriangle,
-  ArrowUpRight,
-  ArrowDownRight,
 } from "lucide-react";
 import Card, { CardContent, CardHeader } from "@/components/ui/card";
 import StatCard from "@/components/dashboard/stat-card";
@@ -37,11 +35,7 @@ export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  async function fetchDashboardData() {
+  const fetchDashboardData = useCallback(async () => {
     try {
       const res = await fetch("/api/reports");
       if (res.ok) {
@@ -53,7 +47,11 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   if (loading) {
     return (
@@ -76,7 +74,6 @@ export default function AdminDashboard() {
         <p className="text-gray-500">Here&apos;s what&apos;s happening with your PG today</p>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Monthly Revenue"
@@ -108,7 +105,6 @@ export default function AdminDashboard() {
         />
       </div>
 
-      {/* Second Row Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard
           title="Active Tenants"
@@ -133,7 +129,6 @@ export default function AdminDashboard() {
         />
       </div>
 
-      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
@@ -158,7 +153,6 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
-      {/* Category Expenses */}
       <Card>
         <CardHeader>
           <h3 className="text-lg font-semibold text-gray-900">Expense Breakdown</h3>

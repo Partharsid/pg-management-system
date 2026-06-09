@@ -186,7 +186,7 @@ export default function RoomsPage() {
         size="lg"
       >
         <RoomForm
-          room={selectedRoom}
+          room={selectedRoom || undefined}
           onSuccess={() => {
             setShowModal(false);
             setSelectedRoom(null);

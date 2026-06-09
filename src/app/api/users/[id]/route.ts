@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { z } from "zod";
+
+const userUpdateSchema = z.object({
+  name: z.string().min(1).optional(),
+  phone: z.string().nullable().optional(),
+  password: z.string().min(6).optional(),
+  role: z.enum(["ADMIN", "MANAGER", "TENANT"]).optional(),
+  isActive: z.boolean().optional(),
+});
 
 export async function PUT(
   req: NextRequest,
@@ -15,14 +24,16 @@ export async function PUT(
 
     const { id } = await params;
     const body = await req.json();
+    const validatedData = userUpdateSchema.parse(body);
 
-    if (body.password) {
-      body.password = await bcrypt.hash(body.password, 12);
+    const updateData: Record<string, unknown> = { ...validatedData };
+    if (validatedData.password) {
+      updateData.password = await bcrypt.hash(validatedData.password, 12);
     }
 
     const user = await prisma.user.update({
       where: { id },
-      data: body,
+      data: updateData,
       select: {
         id: true,
         email: true,
@@ -35,6 +46,9 @@ export async function PUT(
 
     return NextResponse.json(user);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.issues }, { status: 400 });
+    }
     console.error("Error updating user:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Edit, Phone, Mail, Calendar, BedDouble, CreditCard } from "lucide-react";
+import { ArrowLeft, Edit, Phone, Mail, Calendar, BedDouble } from "lucide-react";
 import Button from "@/components/ui/button";
 import Card, { CardContent, CardHeader } from "@/components/ui/card";
 import Badge from "@/components/ui/badge";
@@ -10,30 +10,66 @@ import Modal from "@/components/ui/modal";
 import TenantForm from "@/components/tenants/tenant-form";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
+interface InvoiceRecord {
+  id: string;
+  invoiceNumber: string;
+  month: number;
+  year: number;
+  totalAmount: number;
+  paidAmount: number;
+  status: string;
+  dueDate: string;
+}
+
+interface PaymentRecord {
+  id: string;
+  amount: number;
+  paymentDate: string;
+  paymentMode: string;
+}
+
+interface TenantDetail {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  status: string;
+  dateOfJoining: string;
+  baseRent: number;
+  securityDeposit: number | null;
+  idProofType: string | null;
+  idProofNumber: string | null;
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
+  bed: {
+    bedNumber: string;
+    room: { roomNumber: string; floor: number };
+  } | null;
+  invoices: InvoiceRecord[];
+  payments: PaymentRecord[];
+}
+
 export default function TenantDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const [tenant, setTenant] = useState<any>(null);
+  const [tenant, setTenant] = useState<TenantDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
 
-  useEffect(() => {
-    fetchTenant();
-  }, [params.id]);
-
-  async function fetchTenant() {
+  const fetchTenant = useCallback(async () => {
     try {
       const res = await fetch(`/api/tenants/${params.id}`);
-      if (res.ok) {
-        const data = await res.json();
-        setTenant(data);
-      }
-    } catch (error) {
-      console.error("Error fetching tenant:", error);
+      if (res.ok) setTenant(await res.json());
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
     }
-  }
+  }, [params.id]);
+
+  useEffect(() => {
+    fetchTenant();
+  }, [fetchTenant]);
 
   if (loading) {
     return (
@@ -48,8 +84,8 @@ export default function TenantDetailPage() {
   }
 
   const pendingAmount = tenant.invoices
-    ?.filter((inv: any) => inv.status !== "PAID")
-    .reduce((sum: number, inv: any) => sum + (Number(inv.totalAmount) - Number(inv.paidAmount)), 0) || 0;
+    ?.filter((inv) => inv.status !== "PAID")
+    .reduce((sum, inv) => sum + (Number(inv.totalAmount) - Number(inv.paidAmount)), 0) || 0;
 
   return (
     <div className="space-y-6">
@@ -64,13 +100,11 @@ export default function TenantDetailPage() {
           </div>
         </div>
         <Button onClick={() => setShowEditModal(true)}>
-          <Edit className="w-4 h-4" />
-          Edit Tenant
+          <Edit className="w-4 h-4" /> Edit Tenant
         </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Personal Info */}
         <Card>
           <CardHeader>
             <h3 className="text-lg font-semibold">Personal Information</h3>
@@ -108,7 +142,6 @@ export default function TenantDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Room & Rent */}
         <Card>
           <CardHeader>
             <h3 className="text-lg font-semibold">Room & Rent</h3>
@@ -139,7 +172,6 @@ export default function TenantDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Quick Stats */}
         <Card>
           <CardHeader>
             <h3 className="text-lg font-semibold">Payment Summary</h3>
@@ -152,21 +184,20 @@ export default function TenantDetailPage() {
             <div>
               <p className="text-xs text-gray-500">Total Paid</p>
               <p className="text-lg font-semibold text-green-600">
-                {formatCurrency(tenant.payments?.reduce((sum: number, p: any) => sum + Number(p.amount), 0) || 0)}
+                {formatCurrency(tenant.payments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0)}
               </p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Invoices */}
       <Card>
         <CardHeader>
           <h3 className="text-lg font-semibold">Invoices</h3>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {tenant.invoices?.map((invoice: any) => (
+            {tenant.invoices?.map((invoice) => (
               <div key={invoice.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div>
                   <p className="font-medium">{invoice.invoiceNumber}</p>
@@ -187,14 +218,13 @@ export default function TenantDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Payments */}
       <Card>
         <CardHeader>
           <h3 className="text-lg font-semibold">Payment History</h3>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {tenant.payments?.map((payment: any) => (
+            {tenant.payments?.map((payment) => (
               <div key={payment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div>
                   <p className="font-medium">{formatCurrency(Number(payment.amount))}</p>

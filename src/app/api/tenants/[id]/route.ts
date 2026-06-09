@@ -31,6 +31,7 @@ export async function GET(
     }
 
     const { id } = await params;
+    const userRole = (session.user as { role?: string })?.role;
 
     const tenant = await prisma.tenant.findUnique({
       where: { id },
@@ -49,6 +50,14 @@ export async function GET(
 
     if (!tenant) {
       return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
+    }
+
+    // TENANT can only view their own record
+    if (userRole === "TENANT") {
+      const sessionUserId = (session.user as { id?: string })?.id;
+      if (tenant.userId !== sessionUserId) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
     }
 
     return NextResponse.json(tenant);

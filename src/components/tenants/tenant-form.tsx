@@ -1,19 +1,39 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Button from "@/components/ui/button";
 import Input from "@/components/ui/input";
 import Select from "@/components/ui/select";
 
+interface BedOption {
+  id: string;
+  bedNumber: string;
+  room: { roomNumber: string; floor: number };
+}
+
 interface TenantFormProps {
-  tenant?: any;
+  tenant?: {
+    id: string;
+    name: string;
+    email?: string | null;
+    phone: string;
+    idProofType?: string | null;
+    idProofNumber?: string | null;
+    emergencyContactName?: string | null;
+    emergencyContactPhone?: string | null;
+    dateOfJoining: string;
+    baseRent: number;
+    securityDeposit?: number | null;
+    bedId?: string | null;
+    notes?: string | null;
+  };
   onSuccess: () => void;
 }
 
 export default function TenantForm({ tenant, onSuccess }: TenantFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [beds, setBeds] = useState<any[]>([]);
+  const [beds, setBeds] = useState<BedOption[]>([]);
   const [formData, setFormData] = useState({
     name: tenant?.name || "",
     email: tenant?.email || "",
@@ -29,21 +49,21 @@ export default function TenantForm({ tenant, onSuccess }: TenantFormProps) {
     notes: tenant?.notes || "",
   });
 
-  useEffect(() => {
-    fetchBeds();
-  }, []);
-
-  async function fetchBeds() {
+  const fetchBeds = useCallback(async () => {
     try {
       const res = await fetch("/api/beds?status=VACANT");
       if (res.ok) {
         const data = await res.json();
         setBeds(data);
       }
-    } catch (error) {
-      console.error("Error fetching beds:", error);
+    } catch (err) {
+      console.error(err);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    fetchBeds();
+  }, [fetchBeds]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,8 +91,8 @@ export default function TenantForm({ tenant, onSuccess }: TenantFormProps) {
       }
 
       onSuccess();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }

@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     const beds = await prisma.bed.findMany({
       where: {
         ...(roomId ? { roomId } : {}),
-        ...(status ? { status: status as any } : {}),
+        ...(status ? { status: status as "VACANT" | "OCCUPIED" | "MAINTENANCE" } : {}),
       },
       include: {
         room: true,

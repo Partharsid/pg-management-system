@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { CreditCard, CheckCircle, Clock, AlertTriangle } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { CheckCircle, Clock, AlertTriangle } from "lucide-react";
 import Card, { CardContent, CardHeader } from "@/components/ui/card";
 import Badge from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -30,9 +30,7 @@ export default function TenantPaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { fetchData(); }, []);
-
-  async function fetchData() {
+  const fetchData = useCallback(async () => {
     try {
       const [invRes, payRes] = await Promise.all([
         fetch("/api/invoices"),
@@ -40,15 +38,28 @@ export default function TenantPaymentsPage() {
       ]);
       if (invRes.ok) setInvoices(await invRes.json());
       if (payRes.ok) setPayments(await payRes.json());
-    } catch (error) { console.error(error); }
-    finally { setLoading(false); }
-  }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const totalDue = invoices
     .filter((inv) => inv.status !== "PAID")
     .reduce((sum, inv) => sum + (Number(inv.totalAmount) - Number(inv.paidAmount)), 0);
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" /></div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -71,9 +82,10 @@ export default function TenantPaymentsPage() {
         </Card>
       )}
 
-      {/* Invoices */}
       <Card>
-        <CardHeader><h3 className="text-lg font-semibold">Invoices</h3></CardHeader>
+        <CardHeader>
+          <h3 className="text-lg font-semibold">Invoices</h3>
+        </CardHeader>
         <CardContent>
           <div className="space-y-3">
             {invoices.map((invoice) => {
@@ -101,9 +113,10 @@ export default function TenantPaymentsPage() {
         </CardContent>
       </Card>
 
-      {/* Payments */}
       <Card>
-        <CardHeader><h3 className="text-lg font-semibold">Payment History</h3></CardHeader>
+        <CardHeader>
+          <h3 className="text-lg font-semibold">Payment History</h3>
+        </CardHeader>
         <CardContent>
           <div className="space-y-3">
             {payments.map((payment) => (

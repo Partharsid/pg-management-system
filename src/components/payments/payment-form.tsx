@@ -1,9 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Button from "@/components/ui/button";
 import Input from "@/components/ui/input";
 import Select from "@/components/ui/select";
+
+interface TenantOption {
+  id: string;
+  name: string;
+  phone: string;
+}
+
+interface InvoiceOption {
+  id: string;
+  invoiceNumber: string;
+  totalAmount: number;
+  paidAmount: number;
+}
 
 interface PaymentFormProps {
   onSuccess: () => void;
@@ -12,8 +25,8 @@ interface PaymentFormProps {
 export default function PaymentForm({ onSuccess }: PaymentFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [tenants, setTenants] = useState<any[]>([]);
-  const [invoices, setInvoices] = useState<any[]>([]);
+  const [tenants, setTenants] = useState<TenantOption[]>([]);
+  const [invoices, setInvoices] = useState<InvoiceOption[]>([]);
   const [formData, setFormData] = useState({
     tenantId: "",
     invoiceId: "",
@@ -24,29 +37,38 @@ export default function PaymentForm({ onSuccess }: PaymentFormProps) {
     notes: "",
   });
 
-  useEffect(() => { fetchTenants(); }, []);
-
-  useEffect(() => {
-    if (formData.tenantId) fetchInvoices(formData.tenantId);
-    else setInvoices([]);
-  }, [formData.tenantId]);
-
-  async function fetchTenants() {
+  const fetchTenants = useCallback(async () => {
     try {
       const res = await fetch("/api/tenants?status=ACTIVE");
       if (res.ok) {
         const data = await res.json();
         setTenants(data.tenants || []);
       }
-    } catch (error) { console.error(error); }
-  }
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
 
-  async function fetchInvoices(tenantId: string) {
+  const fetchInvoices = useCallback(async (tenantId: string) => {
     try {
       const res = await fetch(`/api/invoices?tenantId=${tenantId}&status=PENDING,PARTIALLY_PAID,OVERDUE`);
       if (res.ok) setInvoices(await res.json());
-    } catch (error) { console.error(error); }
-  }
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTenants();
+  }, [fetchTenants]);
+
+  useEffect(() => {
+    if (formData.tenantId) {
+      fetchInvoices(formData.tenantId);
+    } else {
+      setInvoices([]);
+    }
+  }, [formData.tenantId, fetchInvoices]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,8 +92,8 @@ export default function PaymentForm({ onSuccess }: PaymentFormProps) {
       }
 
       onSuccess();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -84,7 +106,10 @@ export default function PaymentForm({ onSuccess }: PaymentFormProps) {
       <Select
         label="Tenant"
         value={formData.tenantId}
-        onChange={(e) => setFormData({ ...formData, tenantId: e.target.value, invoiceId: "" })}
+        onChange={(e) => {
+          const tenantId = e.target.value;
+          setFormData({ ...formData, tenantId, invoiceId: "" });
+        }}
         options={[
           { value: "", label: "Select tenant" },
           ...tenants.map((t) => ({ value: t.id, label: `${t.name} - ${t.phone}` })),
@@ -97,13 +122,17 @@ export default function PaymentForm({ onSuccess }: PaymentFormProps) {
           label="Invoice (Optional)"
           value={formData.invoiceId}
           onChange={(e) => {
-            setFormData({ ...formData, invoiceId: e.target.value });
-            if (e.target.value) {
-              const inv = invoices.find((i) => i.id === e.target.value);
+            const invoiceId = e.target.value;
+            if (invoiceId) {
+              const inv = invoices.find((i) => i.id === invoiceId);
               if (inv) {
                 const due = Number(inv.totalAmount) - Number(inv.paidAmount);
-                setFormData((prev) => ({ ...prev, invoiceId: e.target.value, amount: due.toString() }));
+                setFormData({ ...formData, invoiceId, amount: due.toString() });
+              } else {
+                setFormData({ ...formData, invoiceId });
               }
+            } else {
+              setFormData({ ...formData, invoiceId });
             }
           }}
           options={[

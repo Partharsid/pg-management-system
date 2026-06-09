@@ -5,8 +5,17 @@ import Button from "@/components/ui/button";
 import Input from "@/components/ui/input";
 import Select from "@/components/ui/select";
 
+interface RoomData {
+  id: string;
+  roomNumber: string;
+  floor: number;
+  roomType: string;
+  baseRent: number;
+  beds?: { id: string; bedNumber: string }[];
+}
+
 interface RoomFormProps {
-  room?: any;
+  room?: RoomData;
   onSuccess: () => void;
 }
 
@@ -49,7 +58,6 @@ export default function RoomForm({ room, onSuccess }: RoomFormProps) {
 
       const savedRoom = await res.json();
 
-      // Create beds if new room
       if (!room) {
         const bedsCount = parseInt(formData.bedsCount);
         for (let i = 1; i <= bedsCount; i++) {
@@ -65,8 +73,8 @@ export default function RoomForm({ room, onSuccess }: RoomFormProps) {
       }
 
       onSuccess();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Settings, Users, Building2, Plus, Edit, Trash2 } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { Plus, Trash2 } from "lucide-react";
 import Button from "@/components/ui/button";
 import Card, { CardContent, CardHeader } from "@/components/ui/card";
 import Badge from "@/components/ui/badge";
@@ -10,7 +10,7 @@ import Input from "@/components/ui/input";
 import Select from "@/components/ui/select";
 import { formatDate } from "@/lib/utils";
 
-interface User {
+interface UserRecord {
   id: string;
   name: string;
   email: string;
@@ -21,7 +21,7 @@ interface User {
 }
 
 export default function SettingsPage() {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
@@ -34,15 +34,20 @@ export default function SettingsPage() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { fetchUsers(); }, []);
-
-  async function fetchUsers() {
+  const fetchUsers = useCallback(async () => {
     try {
       const res = await fetch("/api/users");
       if (res.ok) setUsers(await res.json());
-    } catch (error) { console.error(error); }
-    finally { setLoading(false); }
-  }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   async function handleCreateUser(e: React.FormEvent) {
     e.preventDefault();
@@ -64,8 +69,8 @@ export default function SettingsPage() {
       setShowModal(false);
       setFormData({ name: "", email: "", password: "", phone: "", role: "MANAGER" });
       fetchUsers();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setSaving(false);
     }
@@ -76,20 +81,35 @@ export default function SettingsPage() {
     try {
       const res = await fetch(`/api/users/${id}`, { method: "DELETE" });
       if (res.ok) fetchUsers();
-    } catch (error) { console.error(error); }
+    } catch (err) {
+      console.error(err);
+    }
   }
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" /></div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-gray-900">Settings</h1><p className="text-gray-500">Manage users and system settings</p></div>
-        <Button onClick={() => setShowModal(true)}><Plus className="w-4 h-4" /> Add User</Button>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+          <p className="text-gray-500">Manage users and system settings</p>
+        </div>
+        <Button onClick={() => setShowModal(true)}>
+          <Plus className="w-4 h-4" /> Add User
+        </Button>
       </div>
 
       <Card>
-        <CardHeader><h3 className="text-lg font-semibold">Users</h3></CardHeader>
+        <CardHeader>
+          <h3 className="text-lg font-semibold">Users</h3>
+        </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -108,12 +128,22 @@ export default function SettingsPage() {
                   <tr key={user.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium">{user.name}</td>
                     <td className="px-4 py-3 text-gray-500">{user.email}</td>
-                    <td className="px-4 py-3"><Badge variant={user.role === "ADMIN" ? "danger" : user.role === "MANAGER" ? "info" : "default"}>{user.role}</Badge></td>
-                    <td className="px-4 py-3"><Badge variant={user.isActive ? "success" : "gray"}>{user.isActive ? "Active" : "Inactive"}</Badge></td>
+                    <td className="px-4 py-3">
+                      <Badge variant={user.role === "ADMIN" ? "danger" : user.role === "MANAGER" ? "info" : "default"}>
+                        {user.role}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant={user.isActive ? "success" : "gray"}>
+                        {user.isActive ? "Active" : "Inactive"}
+                      </Badge>
+                    </td>
                     <td className="px-4 py-3 text-gray-500">{formatDate(user.createdAt)}</td>
                     <td className="px-4 py-3">
                       {user.role !== "ADMIN" && (
-                        <button onClick={() => handleDeactivateUser(user.id)} className="p-2 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4 text-red-500" /></button>
+                        <button onClick={() => handleDeactivateUser(user.id)} className="p-2 hover:bg-red-50 rounded-lg">
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </button>
                       )}
                     </td>
                   </tr>

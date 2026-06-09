@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
 
     const userRole = (session.user as { role?: string })?.role;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
     if (status) where.status = status;
     if (month) where.month = parseInt(month);

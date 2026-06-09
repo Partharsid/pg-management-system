@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Plus, Receipt, Trash2 } from "lucide-react";
 import Button from "@/components/ui/button";
 import Card, { CardContent, CardHeader } from "@/components/ui/card";
@@ -25,41 +25,64 @@ export default function ManagerExpensesPage() {
   const [showModal, setShowModal] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("");
 
-  useEffect(() => { fetchExpenses(); }, [categoryFilter]);
-
-  async function fetchExpenses() {
+  const fetchExpenses = useCallback(async () => {
     try {
       const params = new URLSearchParams();
       if (categoryFilter) params.set("category", categoryFilter);
       const res = await fetch(`/api/expenses?${params}`);
       if (res.ok) setExpenses(await res.json());
-    } catch (error) { console.error(error); }
-    finally { setLoading(false); }
-  }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [categoryFilter]);
+
+  useEffect(() => {
+    fetchExpenses();
+  }, [fetchExpenses]);
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this expense?")) return;
     try {
       const res = await fetch(`/api/expenses/${id}`, { method: "DELETE" });
       if (res.ok) fetchExpenses();
-    } catch (error) { console.error(error); }
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" /></div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-gray-900">Expenses</h1><p className="text-gray-500">Track PG expenses</p></div>
-        <Button onClick={() => setShowModal(true)}><Plus className="w-4 h-4" /> Add Expense</Button>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Expenses</h1>
+          <p className="text-gray-500">Track PG expenses</p>
+        </div>
+        <Button onClick={() => setShowModal(true)}>
+          <Plus className="w-4 h-4" /> Add Expense
+        </Button>
       </div>
 
       <Card>
         <CardContent className="flex items-center gap-4 p-6">
-          <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center"><Receipt className="w-6 h-6 text-red-600" /></div>
-          <div><p className="text-sm text-gray-500">Total Expenses</p><p className="text-2xl font-bold">{formatCurrency(totalExpenses)}</p></div>
+          <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center">
+            <Receipt className="w-6 h-6 text-red-600" />
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Total Expenses</p>
+            <p className="text-2xl font-bold">{formatCurrency(totalExpenses)}</p>
+          </div>
         </CardContent>
       </Card>
 
@@ -83,7 +106,9 @@ export default function ManagerExpensesPage() {
       </Card>
 
       <Card>
-        <CardHeader><h3 className="text-lg font-semibold">Expenses</h3></CardHeader>
+        <CardHeader>
+          <h3 className="text-lg font-semibold">Expenses</h3>
+        </CardHeader>
         <CardContent>
           <div className="space-y-3">
             {expenses.map((expense) => (
@@ -97,7 +122,9 @@ export default function ManagerExpensesPage() {
                 </div>
                 <div className="flex items-center gap-4">
                   <p className="font-semibold text-gray-900">{formatCurrency(Number(expense.amount))}</p>
-                  <button onClick={() => handleDelete(expense.id)} className="p-2 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4 text-red-500" /></button>
+                  <button onClick={() => handleDelete(expense.id)} className="p-2 hover:bg-red-50 rounded-lg">
+                    <Trash2 className="w-4 h-4 text-red-500" />
+                  </button>
                 </div>
               </div>
             ))}

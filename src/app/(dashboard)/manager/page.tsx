@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import {
   Users,
@@ -32,11 +32,7 @@ export default function ManagerDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  async function fetchDashboardData() {
+  const fetchDashboardData = useCallback(async () => {
     try {
       const res = await fetch("/api/reports");
       if (res.ok) {
@@ -48,7 +44,11 @@ export default function ManagerDashboard() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   if (loading) {
     return (
@@ -71,7 +71,6 @@ export default function ManagerDashboard() {
         <p className="text-gray-500">Here&apos;s your daily operations overview</p>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Active Tenants"
@@ -101,7 +100,6 @@ export default function ManagerDashboard() {
         />
       </div>
 
-      {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Link href="/manager/tenants">
           <Card className="hover:shadow-md transition-shadow cursor-pointer">
@@ -155,7 +153,6 @@ export default function ManagerDashboard() {
         </Link>
       </div>
 
-      {/* Occupancy Overview */}
       <Card>
         <CardHeader>
           <h3 className="text-lg font-semibold text-gray-900">Occupancy Overview</h3>

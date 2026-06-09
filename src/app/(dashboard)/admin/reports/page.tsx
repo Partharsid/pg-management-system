@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { BarChart3, TrendingUp, TrendingDown, DollarSign, BedDouble, Users } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { TrendingUp, TrendingDown, DollarSign, BedDouble, Users, BarChart3 } from "lucide-react";
 import Card, { CardContent, CardHeader } from "@/components/ui/card";
 import StatCard from "@/components/dashboard/stat-card";
 import RevenueChart from "@/components/dashboard/revenue-chart";
@@ -27,22 +27,39 @@ export default function ReportsPage() {
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { fetchReports(); }, []);
-
-  async function fetchReports() {
+  const fetchReports = useCallback(async () => {
     try {
       const res = await fetch("/api/reports");
       if (res.ok) setData(await res.json());
-    } catch (error) { console.error(error); }
-    finally { setLoading(false); }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchReports();
+  }, [fetchReports]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+      </div>
+    );
   }
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" /></div>;
-  if (!data) return <div className="text-center text-gray-500 py-8">Failed to load</div>;
+  if (!data) {
+    return <div className="text-center text-gray-500 py-8">Failed to load</div>;
+  }
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold text-gray-900">Reports & Analytics</h1><p className="text-gray-500">Financial overview and insights</p></div>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Reports & Analytics</h1>
+        <p className="text-gray-500">Financial overview and insights</p>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Revenue" value={formatCurrency(data.totalRevenue)} icon={DollarSign} trend="up" />
@@ -59,17 +76,27 @@ export default function ReportsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
-          <CardHeader><h3 className="text-lg font-semibold">Revenue vs Expenses</h3></CardHeader>
-          <CardContent><RevenueChart data={data.monthlyTrend} /></CardContent>
+          <CardHeader>
+            <h3 className="text-lg font-semibold">Revenue vs Expenses</h3>
+          </CardHeader>
+          <CardContent>
+            <RevenueChart data={data.monthlyTrend} />
+          </CardContent>
         </Card>
         <Card>
-          <CardHeader><h3 className="text-lg font-semibold">Occupancy</h3></CardHeader>
-          <CardContent><OccupancyChart occupied={data.occupiedBeds} vacant={data.vacantBeds} total={data.totalBeds} /></CardContent>
+          <CardHeader>
+            <h3 className="text-lg font-semibold">Occupancy</h3>
+          </CardHeader>
+          <CardContent>
+            <OccupancyChart occupied={data.occupiedBeds} vacant={data.vacantBeds} total={data.totalBeds} />
+          </CardContent>
         </Card>
       </div>
 
       <Card>
-        <CardHeader><h3 className="text-lg font-semibold">Expense Breakdown</h3></CardHeader>
+        <CardHeader>
+          <h3 className="text-lg font-semibold">Expense Breakdown</h3>
+        </CardHeader>
         <CardContent>
           <div className="space-y-3">
             {data.categoryExpenses.map((exp) => (

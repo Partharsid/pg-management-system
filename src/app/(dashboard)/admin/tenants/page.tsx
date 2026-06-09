@@ -1,16 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Filter, Edit, Trash2, Eye, BedDouble } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Eye, BedDouble } from "lucide-react";
 import Button from "@/components/ui/button";
-import Card, { CardContent, CardHeader } from "@/components/ui/card";
+import Card, { CardContent } from "@/components/ui/card";
 import Badge from "@/components/ui/badge";
 import Modal from "@/components/ui/modal";
-import Input from "@/components/ui/input";
 import Select from "@/components/ui/select";
 import TenantForm from "@/components/tenants/tenant-form";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 
 interface Tenant {
   id: string;
@@ -37,31 +36,29 @@ export default function TenantsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
-  useEffect(() => {
-    fetchTenants();
-  }, []);
-
-  async function fetchTenants() {
+  const fetchTenants = useCallback(async () => {
     try {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       if (statusFilter) params.set("status", statusFilter);
-
       const res = await fetch(`/api/tenants?${params}`);
       if (res.ok) {
         const data = await res.json();
         setTenants(data.tenants || []);
       }
-    } catch (error) {
-      console.error("Error fetching tenants:", error);
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
     }
-  }
+  }, [search, statusFilter]);
+
+  useEffect(() => {
+    fetchTenants();
+  }, [fetchTenants]);
 
   async function handleDelete(id: string) {
     if (!confirm("Are you sure you want to delete this tenant?")) return;
-
     try {
       const res = await fetch(`/api/tenants/${id}`, { method: "DELETE" });
       if (res.ok) {
@@ -70,18 +67,10 @@ export default function TenantsPage() {
         const data = await res.json();
         alert(data.error);
       }
-    } catch (error) {
-      console.error("Error deleting tenant:", error);
+    } catch (err) {
+      console.error(err);
     }
   }
-
-  const filteredTenants = tenants.filter((t) => {
-    if (search) {
-      const q = search.toLowerCase();
-      return t.name.toLowerCase().includes(q) || t.phone.includes(q) || t.email?.toLowerCase().includes(q);
-    }
-    return true;
-  });
 
   if (loading) {
     return (
@@ -99,12 +88,10 @@ export default function TenantsPage() {
           <p className="text-gray-500">Manage your PG tenants</p>
         </div>
         <Button onClick={() => { setSelectedTenant(null); setShowModal(true); }}>
-          <Plus className="w-4 h-4" />
-          Add Tenant
+          <Plus className="w-4 h-4" /> Add Tenant
         </Button>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardContent className="flex items-center gap-4 p-4">
           <div className="flex-1 relative">
@@ -120,7 +107,7 @@ export default function TenantsPage() {
           </div>
           <Select
             value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setTimeout(fetchTenants, 100); }}
+            onChange={(e) => setStatusFilter(e.target.value)}
             options={[
               { value: "", label: "All Status" },
               { value: "ACTIVE", label: "Active" },
@@ -131,9 +118,8 @@ export default function TenantsPage() {
         </CardContent>
       </Card>
 
-      {/* Tenant List */}
       <div className="grid gap-4">
-        {filteredTenants.map((tenant) => {
+        {tenants.map((tenant) => {
           const pendingAmount = tenant.invoices
             .filter((inv) => inv.status !== "PAID")
             .reduce((sum, inv) => sum + (Number(inv.totalAmount) - Number(inv.paidAmount)), 0);
@@ -204,7 +190,7 @@ export default function TenantsPage() {
           );
         })}
 
-        {filteredTenants.length === 0 && (
+        {tenants.length === 0 && (
           <Card>
             <CardContent className="text-center py-12">
               <BedDouble className="w-12 h-12 text-gray-300 mx-auto mb-4" />
@@ -221,7 +207,7 @@ export default function TenantsPage() {
         size="xl"
       >
         <TenantForm
-          tenant={selectedTenant}
+          tenant={selectedTenant || undefined}
           onSuccess={() => { setShowModal(false); setSelectedTenant(null); fetchTenants(); }}
         />
       </Modal>

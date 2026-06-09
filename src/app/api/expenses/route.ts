@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
     const endDate = searchParams.get("endDate");
     const propertyId = searchParams.get("propertyId");
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
     if (category) where.category = category;
     if (propertyId) where.propertyId = propertyId;

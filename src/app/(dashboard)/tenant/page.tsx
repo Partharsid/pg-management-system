@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
+import { useEffect, useState, useCallback } from "react";
 import {
   BedDouble,
   CreditCard,
@@ -13,6 +12,24 @@ import {
 import Card, { CardContent, CardHeader } from "@/components/ui/card";
 import Badge from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
+
+interface TenantInvoice {
+  id: string;
+  invoiceNumber: string;
+  month: number;
+  year: number;
+  totalAmount: number;
+  paidAmount: number;
+  status: string;
+  dueDate: string;
+}
+
+interface TenantPayment {
+  id: string;
+  amount: number;
+  paymentDate: string;
+  paymentMode: string;
+}
 
 interface TenantData {
   id: string;
@@ -29,34 +46,15 @@ interface TenantData {
       floor: number;
     };
   } | null;
-  invoices: {
-    id: string;
-    invoiceNumber: string;
-    month: number;
-    year: number;
-    totalAmount: number;
-    paidAmount: number;
-    status: string;
-    dueDate: string;
-  }[];
-  payments: {
-    id: string;
-    amount: number;
-    paymentDate: string;
-    paymentMode: string;
-  }[];
+  invoices: TenantInvoice[];
+  payments: TenantPayment[];
 }
 
 export default function TenantDashboard() {
-  const { data: session } = useSession();
   const [tenantData, setTenantData] = useState<TenantData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchTenantData();
-  }, []);
-
-  async function fetchTenantData() {
+  const fetchTenantData = useCallback(async () => {
     try {
       const res = await fetch("/api/tenants");
       if (res.ok) {
@@ -70,7 +68,11 @@ export default function TenantDashboard() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    fetchTenantData();
+  }, [fetchTenantData]);
 
   if (loading) {
     return (
@@ -105,7 +107,6 @@ export default function TenantDashboard() {
         <p className="text-gray-500">Here&apos;s your PG accommodation details</p>
       </div>
 
-      {/* Room & Bed Info */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-6">
@@ -161,7 +162,6 @@ export default function TenantDashboard() {
         </Card>
       </div>
 
-      {/* Outstanding Dues */}
       {totalDue > 0 && (
         <Card className="border-red-200 bg-red-50">
           <CardContent className="p-6">
@@ -179,7 +179,6 @@ export default function TenantDashboard() {
         </Card>
       )}
 
-      {/* Recent Invoices */}
       <Card>
         <CardHeader>
           <h3 className="text-lg font-semibold text-gray-900">Recent Invoices</h3>
@@ -226,7 +225,6 @@ export default function TenantDashboard() {
         </CardContent>
       </Card>
 
-      {/* Recent Payments */}
       <Card>
         <CardHeader>
           <h3 className="text-lg font-semibold text-gray-900">Payment History</h3>
