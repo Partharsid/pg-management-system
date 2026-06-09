@@ -2,11 +2,9 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { Building2, Eye, EyeOff, Loader2 } from "lucide-react";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -19,22 +17,11 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const result = await signIn("credentials", {
+      await signIn("credentials", {
         email,
         password,
-        redirect: false,
-        callbackUrl: "/",
+        redirectTo: "/",
       });
-
-      if (result?.error) {
-        setError("Invalid email or password");
-        setLoading(false);
-      } else if (result?.url) {
-        router.push(result.url);
-      } else {
-        router.push("/");
-        router.refresh();
-      }
     } catch (err) {
       console.error("Login error:", err);
       setError("An error occurred. Please try again.");
