@@ -3,6 +3,12 @@ import { NextResponse } from "next/server";
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
+
+  // Allow all auth routes without any checks
+  if (pathname.startsWith("/api/auth")) {
+    return NextResponse.next();
+  }
+
   const isLoggedIn = !!req.auth;
   const userRole = (req.auth?.user as { role?: string })?.role;
 
@@ -33,19 +39,12 @@ export default auth((req) => {
     return NextResponse.redirect(new URL(getDashboardUrl(userRole || ""), req.url));
   }
 
-  // API routes - role check
+  // API routes - role check for non-auth routes
   if (pathname.startsWith("/api/")) {
-    // Public API routes
-    if (pathname.startsWith("/api/auth")) {
-      return NextResponse.next();
-    }
-
-    // Admin-only API routes
     if (pathname.startsWith("/api/users") && userRole !== "ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Tenant can only read payments
     if (userRole === "TENANT" && req.method !== "GET") {
       if (pathname.startsWith("/api/payments") || pathname.startsWith("/api/invoices")) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
