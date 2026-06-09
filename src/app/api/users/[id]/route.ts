@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -17,7 +18,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     if (!session || (session.user as { role?: string })?.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -34,14 +35,7 @@ export async function PUT(
     const user = await prisma.user.update({
       where: { id },
       data: updateData,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        phone: true,
-        role: true,
-        isActive: true,
-      },
+      select: { id: true, email: true, name: true, phone: true, role: true, isActive: true },
     });
 
     return NextResponse.json(user);
@@ -59,18 +53,13 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     if (!session || (session.user as { role?: string })?.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = await params;
-
-    await prisma.user.update({
-      where: { id },
-      data: { isActive: false },
-    });
-
+    await prisma.user.update({ where: { id }, data: { isActive: false } });
     return NextResponse.json({ message: "User deactivated successfully" });
   } catch (error) {
     console.error("Error deleting user:", error);

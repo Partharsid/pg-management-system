@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 
@@ -15,7 +16,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -26,12 +27,8 @@ export async function GET(
     const invoice = await prisma.invoice.findUnique({
       where: { id },
       include: {
-        tenant: {
-          select: { id: true, name: true, phone: true, email: true, userId: true },
-        },
-        payments: {
-          orderBy: { paymentDate: "desc" },
-        },
+        tenant: { select: { id: true, name: true, phone: true, email: true, userId: true } },
+        payments: { orderBy: { paymentDate: "desc" } },
       },
     });
 
@@ -39,7 +36,6 @@ export async function GET(
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
     }
 
-    // TENANT can only view their own invoices
     if (userRole === "TENANT") {
       const sessionUserId = (session.user as { id?: string })?.id;
       if (invoice.tenant.userId !== sessionUserId) {
@@ -59,7 +55,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     if (!session || (session.user as { role?: string })?.role === "TENANT") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -77,35 +73,21 @@ export async function PUT(
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
     }
 
-    const paidAmount = invoice.payments.reduce(
-      (sum, p) => sum + Number(p.amount),
-      0
-    );
-
-    // Recalculate total if charges changed
+    const paidAmount = invoice.payments.reduce((sum, p) => sum + Number(p.amount), 0);
     const baseRent = Number(invoice.baseRent);
-    const electricityCharge = validatedData.electricityCharge ?? Number(invoice.electricityCharge ?? 0);
-    const waterCharge = validatedData.waterCharge ?? Number(invoice.waterCharge ?? 0);
-    const otherCharges = validatedData.otherCharges ?? Number(invoice.otherCharges ?? 0);
-    const totalAmount = baseRent + electricityCharge + waterCharge + otherCharges;
+    const ec = validatedData.electricityCharge ?? Number(invoice.electricityCharge ?? 0);
+    const wc = validatedData.waterCharge ?? Number(invoice.waterCharge ?? 0);
+    const oc = validatedData.otherCharges ?? Number(invoice.otherCharges ?? 0);
+    const totalAmount = baseRent + ec + wc + oc;
 
     let status = invoice.status;
-    if (paidAmount >= totalAmount) {
-      status = "PAID";
-    } else if (paidAmount > 0) {
-      status = "PARTIALLY_PAID";
-    } else {
-      status = "PENDING";
-    }
+    if (paidAmount >= totalAmount) status = "PAID";
+    else if (paidAmount > 0) status = "PARTIALLY_PAID";
+    else status = "PENDING";
 
     const updatedInvoice = await prisma.invoice.update({
       where: { id },
-      data: {
-        ...validatedData,
-        totalAmount,
-        paidAmount,
-        status,
-      },
+      data: { ...validatedData, totalAmount, paidAmount, status },
     });
 
     return NextResponse.json(updatedInvoice);

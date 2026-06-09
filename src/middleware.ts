@@ -1,18 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-function getSessionFromRequest(req: NextRequest): { role?: string } | null {
-  const sessionToken = req.cookies.get("next-auth.session-token")?.value ||
-                       req.cookies.get("__Secure-next-auth.session-token")?.value;
-  if (!sessionToken) return null;
-  return { role: undefined };
-}
-
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Allow all auth routes and API auth routes
-  if (pathname.startsWith("/api/auth") || pathname.startsWith("/login")) {
+  if (pathname.startsWith("/api/auth") || pathname === "/login") {
     return NextResponse.next();
   }
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 
@@ -25,7 +26,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -36,15 +37,9 @@ export async function GET(
     const tenant = await prisma.tenant.findUnique({
       where: { id },
       include: {
-        bed: {
-          include: { room: true },
-        },
-        invoices: {
-          orderBy: { createdAt: "desc" },
-        },
-        payments: {
-          orderBy: { paymentDate: "desc" },
-        },
+        bed: { include: { room: true } },
+        invoices: { orderBy: { createdAt: "desc" } },
+        payments: { orderBy: { paymentDate: "desc" } },
       },
     });
 
@@ -52,7 +47,6 @@ export async function GET(
       return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
     }
 
-    // TENANT can only view their own record
     if (userRole === "TENANT") {
       const sessionUserId = (session.user as { id?: string })?.id;
       if (tenant.userId !== sessionUserId) {
@@ -72,7 +66,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     if (!session || (session.user as { role?: string })?.role === "TENANT") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -81,61 +75,35 @@ export async function PUT(
     const body = await req.json();
     const validatedData = tenantUpdateSchema.parse(body);
 
-    // Get current tenant to handle bed changes
-    const currentTenant = await prisma.tenant.findUnique({
-      where: { id },
-    });
-
+    const currentTenant = await prisma.tenant.findUnique({ where: { id } });
     if (!currentTenant) {
       return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
     }
 
     const tenant = await prisma.$transaction(async (tx) => {
-      // Handle bed change
       if (validatedData.bedId !== undefined) {
-        // Free old bed
         if (currentTenant.bedId) {
-          await tx.bed.update({
-            where: { id: currentTenant.bedId },
-            data: { status: "VACANT" },
-          });
+          await tx.bed.update({ where: { id: currentTenant.bedId }, data: { status: "VACANT" } });
         }
-
-        // Assign new bed
         if (validatedData.bedId) {
-          const newBed = await tx.bed.findUnique({
-            where: { id: validatedData.bedId },
-          });
-          if (!newBed || newBed.status !== "VACANT") {
-            throw new Error("Selected bed is not available");
-          }
-          await tx.bed.update({
-            where: { id: validatedData.bedId },
-            data: { status: "OCCUPIED" },
-          });
+          const newBed = await tx.bed.findUnique({ where: { id: validatedData.bedId } });
+          if (!newBed || newBed.status !== "VACANT") throw new Error("Selected bed is not available");
+          await tx.bed.update({ where: { id: validatedData.bedId }, data: { status: "OCCUPIED" } });
         }
       }
 
-      // Handle status change to LEFT
       if (validatedData.status === "LEFT" && currentTenant.status !== "LEFT") {
-        validatedData.dateOfLeaving = new Date();
+        validatedData.dateOfLeaving = new Date() as any;
         if (currentTenant.bedId) {
-          await tx.bed.update({
-            where: { id: currentTenant.bedId },
-            data: { status: "VACANT" },
-          });
-          validatedData.bedId = null;
+          await tx.bed.update({ where: { id: currentTenant.bedId }, data: { status: "VACANT" } });
+          validatedData.bedId = null as any;
         }
       }
 
       return tx.tenant.update({
         where: { id },
         data: validatedData,
-        include: {
-          bed: {
-            include: { room: true },
-          },
-        },
+        include: { bed: { include: { room: true } } },
       });
     });
 
@@ -154,18 +122,15 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     if (!session || (session.user as { role?: string })?.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = await params;
-
     const tenant = await prisma.tenant.findUnique({
       where: { id },
-      include: {
-        invoices: { where: { status: { in: ["PENDING", "OVERDUE"] } } },
-      },
+      include: { invoices: { where: { status: { in: ["PENDING", "OVERDUE"] } } } },
     });
 
     if (!tenant) {
@@ -173,21 +138,13 @@ export async function DELETE(
     }
 
     if (tenant.invoices.length > 0) {
-      return NextResponse.json(
-        { error: "Cannot delete tenant with pending invoices" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Cannot delete tenant with pending invoices" }, { status: 400 });
     }
 
     await prisma.$transaction(async (tx) => {
-      // Free bed if assigned
       if (tenant.bedId) {
-        await tx.bed.update({
-          where: { id: tenant.bedId },
-          data: { status: "VACANT" },
-        });
+        await tx.bed.update({ where: { id: tenant.bedId }, data: { status: "VACANT" } });
       }
-
       await tx.tenant.delete({ where: { id } });
     });
 

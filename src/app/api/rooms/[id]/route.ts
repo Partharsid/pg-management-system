@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 
@@ -16,7 +17,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -25,13 +26,7 @@ export async function GET(
     const room = await prisma.room.findUnique({
       where: { id },
       include: {
-        beds: {
-          include: {
-            tenant: {
-              select: { id: true, name: true, phone: true, status: true },
-            },
-          },
-        },
+        beds: { include: { tenant: { select: { id: true, name: true, phone: true, status: true } } } },
         property: true,
       },
     });
@@ -52,7 +47,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     if (!session || (session.user as { role?: string })?.role === "TENANT") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -81,21 +76,15 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     if (!session || (session.user as { role?: string })?.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = await params;
-
-    // Check if room has occupied beds
     const room = await prisma.room.findUnique({
       where: { id },
-      include: {
-        beds: {
-          include: { tenant: true },
-        },
-      },
+      include: { beds: { include: { tenant: true } } },
     });
 
     if (!room) {
@@ -104,18 +93,10 @@ export async function DELETE(
 
     const hasOccupiedBeds = room.beds.some((bed) => bed.tenant);
     if (hasOccupiedBeds) {
-      return NextResponse.json(
-        { error: "Cannot delete room with occupied beds" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Cannot delete room with occupied beds" }, { status: 400 });
     }
 
-    // Soft delete
-    await prisma.room.update({
-      where: { id },
-      data: { isActive: false },
-    });
-
+    await prisma.room.update({ where: { id }, data: { isActive: false } });
     return NextResponse.json({ message: "Room deleted successfully" });
   } catch (error) {
     console.error("Error deleting room:", error);

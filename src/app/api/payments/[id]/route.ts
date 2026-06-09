@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 export async function GET(
@@ -7,7 +8,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -18,13 +19,9 @@ export async function GET(
     const payment = await prisma.payment.findUnique({
       where: { id },
       include: {
-        tenant: {
-          select: { id: true, name: true, phone: true, userId: true },
-        },
+        tenant: { select: { id: true, name: true, phone: true, userId: true } },
         invoice: true,
-        recordedBy: {
-          select: { id: true, name: true },
-        },
+        recordedBy: { select: { id: true, name: true } },
       },
     });
 
@@ -32,7 +29,6 @@ export async function GET(
       return NextResponse.json({ error: "Payment not found" }, { status: 404 });
     }
 
-    // TENANT can only view their own payments
     if (userRole === "TENANT") {
       const sessionUserId = (session.user as { id?: string })?.id;
       if (payment.tenant.userId !== sessionUserId) {

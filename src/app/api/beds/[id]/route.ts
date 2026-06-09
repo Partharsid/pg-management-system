@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 
@@ -13,7 +14,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     if (!session || (session.user as { role?: string })?.role === "TENANT") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -25,10 +26,7 @@ export async function PUT(
     const bed = await prisma.bed.update({
       where: { id },
       data: validatedData,
-      include: {
-        room: true,
-        tenant: true,
-      },
+      include: { room: true, tenant: true },
     });
 
     return NextResponse.json(bed);
@@ -46,31 +44,23 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     if (!session || (session.user as { role?: string })?.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = await params;
-
-    const bed = await prisma.bed.findUnique({
-      where: { id },
-      include: { tenant: true },
-    });
+    const bed = await prisma.bed.findUnique({ where: { id }, include: { tenant: true } });
 
     if (!bed) {
       return NextResponse.json({ error: "Bed not found" }, { status: 404 });
     }
 
     if (bed.tenant) {
-      return NextResponse.json(
-        { error: "Cannot delete bed with assigned tenant" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Cannot delete bed with assigned tenant" }, { status: 400 });
     }
 
     await prisma.bed.delete({ where: { id } });
-
     return NextResponse.json({ message: "Bed deleted successfully" });
   } catch (error) {
     console.error("Error deleting bed:", error);

@@ -26,8 +26,6 @@ export default function LoginPage() {
       if (result?.error) {
         setError("Invalid email or password");
         setLoading(false);
-      } else if (result?.url) {
-        window.location.href = result.url;
       } else {
         window.location.href = "/";
       }

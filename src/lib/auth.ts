@@ -1,11 +1,11 @@
 import NextAuth from "next-auth";
-import Credentials from "next-auth/providers/credentials";
+import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import prisma from "./prisma";
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
+export const authOptions = {
   providers: [
-    Credentials({
+    CredentialsProvider({
       name: "credentials",
       credentials: {
         email: { label: "Email", type: "text" },
@@ -17,18 +17,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             return null;
           }
 
-          const email = String(credentials.email);
-          const password = String(credentials.password);
-
           const user = await prisma.user.findUnique({
-            where: { email },
+            where: { email: credentials.email },
           });
 
           if (!user || !user.isActive) {
             return null;
           }
 
-          const isPasswordValid = await bcrypt.compare(password, user.password);
+          const isPasswordValid = await bcrypt.compare(
+            credentials.password,
+            user.password
+          );
 
           if (!isPasswordValid) {
             return null;
@@ -41,24 +41,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             role: user.role,
           };
         } catch (error) {
-          console.error("Authorize error:", error);
+          console.error("Auth error:", error);
           return null;
         }
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user }: any) {
       if (user) {
         token.id = user.id;
-        token.role = (user as unknown as { role: string }).role;
+        token.role = user.role;
       }
       return token;
     },
-    async session({ session, token }) {
+    async session({ session, token }: any) {
       if (session.user) {
-        (session.user as unknown as { id: string }).id = token.id as string;
-        (session.user as unknown as { role: string }).role = token.role as string;
+        session.user.id = token.id;
+        session.user.role = token.role;
       }
       return session;
     },
@@ -67,7 +67,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: "/login",
   },
   session: {
-    strategy: "jwt",
+    strategy: "jwt" as const,
   },
   secret: process.env.NEXTAUTH_SECRET,
-});
+};
+
+export default NextAuth(authOptions);
