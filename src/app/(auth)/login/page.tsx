@@ -23,18 +23,21 @@ export default function LoginPage() {
         email,
         password,
         redirect: false,
+        callbackUrl: "/",
       });
 
       if (result?.error) {
         setError("Invalid email or password");
-      } else if (result?.ok) {
+        setLoading(false);
+      } else if (result?.url) {
+        router.push(result.url);
+      } else {
         router.push("/");
         router.refresh();
       }
     } catch (err) {
       console.error("Login error:", err);
       setError("An error occurred. Please try again.");
-    } finally {
       setLoading(false);
     }
   };
@@ -64,11 +67,12 @@ export default function LoginPage() {
               </label>
               <input
                 id="email"
-                type="email"
+                type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
+                autoComplete="email"
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-gray-900 bg-white"
               />
             </div>
@@ -85,6 +89,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
+                  autoComplete="current-password"
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors pr-10 text-gray-900 bg-white"
                 />
                 <button
